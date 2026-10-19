@@ -1,0 +1,174 @@
+@page {
+  size: A4;
+  margin: 18mm 17mm 20mm;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  font-size: 10.5pt;
+}
+
+body {
+  color: #1d2e34;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  line-height: 1.5;
+  margin: 0 auto;
+  max-width: 180mm;
+}
+
+body::before {
+  align-items: center;
+  background: #12343e;
+  border-radius: 10px;
+  box-sizing: border-box;
+  color: #fff;
+  content: "DOCUMENTATION COMPLÈTE\A\A Professional Profile Explorer\A\A Plateforme Streamlit — cinq modèles intégrés";
+  display: flex;
+  font-size: 26pt;
+  font-weight: 700;
+  justify-content: center;
+  line-height: 1.18;
+  min-height: 248mm;
+  margin: 0;
+  padding: 20mm 14mm;
+  page-break-after: always;
+  text-align: center;
+  white-space: pre-line;
+}
+
+h1 {
+  display: none;
+}
+
+h2 {
+  border-bottom: 2px solid #b9d0d6;
+  color: #12343e;
+  font-size: 17pt;
+  margin: 9mm 0 4mm;
+  padding-bottom: 2mm;
+  break-after: avoid-page;
+}
+
+h3,
+h4 {
+  color: #1b5968;
+  break-after: avoid-page;
+}
+
+h3 {
+  font-size: 13pt;
+  margin: 6mm 0 2.5mm;
+}
+
+p,
+li {
+  orphans: 3;
+  widows: 3;
+}
+
+li {
+  margin-bottom: 1.2mm;
+}
+
+a {
+  color: #176b7d;
+  text-decoration: none;
+}
+
+code {
+  background: #edf3f5;
+  border-radius: 3px;
+  color: #173f49;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 9pt;
+  padding: 0.2em 0.35em;
+}
+
+pre {
+  background: #edf3f5;
+  border-left: 4px solid #2f7787;
+  border-radius: 5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  padding: 4mm;
+  white-space: pre-wrap;
+  break-inside: avoid-page;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+}
+
+blockquote {
+  border-left: 4px solid #79a7b1;
+  color: #465d63;
+  margin-left: 0;
+  padding-left: 4mm;
+}
+
+#TOC {
+  columns: 2;
+  column-gap: 10mm;
+  page-break-after: always;
+}
+
+#TOC::before {
+  color: #12343e;
+  content: "Table des matières";
+  display: block;
+  font-size: 20pt;
+  font-weight: 700;
+  margin: 0 0 6mm;
+  column-span: all;
+}
+
+#TOC ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+#TOC ul ul {
+  padding-left: 4mm;
+}
+
+#TOC li {
+  break-inside: avoid;
+  margin-bottom: 2mm;
+}
+
+#TOC > ul > li > a {
+  display: none;
+}
+
+#TOC > ul > li > ul {
+  padding-left: 0;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #cbdadd;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+@media print {
+  body {
+    max-width: none;
+  }
+
+  h2,
+  h3,
+  h4,
+  pre,
+  blockquote {
+    break-inside: avoid-page;
+  }
+}
