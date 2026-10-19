@@ -264,13 +264,11 @@ def main():
         .block-container {padding-top: 1.4rem; max-width: 1180px;}
         .hero {background:#12343e; color:#f7fbfb; border-radius:18px; padding:26px 28px; margin-bottom:16px;}
         .hero h1 {color:#f7fbfb; font-size:1.8rem; margin:0 0 6px 0;}
-        .hero p {margin:0; color:#d5e4e8;}
         .result {font-size:1.35rem; font-weight:650; color:#12343e; margin:4px 0 8px 0;}
         div[data-testid="stVerticalBlockBorderWrapper"] {border-color:#d7e2e6;}
         </style>
         <div class="hero">
           <h1>Professional Profile Explorer</h1>
-          <p>Une carte, cinq modules. Prototype sur les données Adult de 1994 : ce n'est ni un outil de recrutement ni une garantie.</p>
         </div>
         """,
         unsafe_allow_html=True,

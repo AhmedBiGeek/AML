@@ -823,3 +823,1052 @@ http://localhost:8501
 
 La plateforme fonctionne ensuite sans réexécuter les notebooks et sans
 réentraîner les modèles.
+
+## 26. Flux d'exécution exhaustif
+
+Cette section décrit chronologiquement tout ce que fait la plateforme, depuis
+la commande de lancement jusqu'à l'affichage des cinq résultats.
+
+### Phase A — Lancement du processus
+
+#### Étape 1 — Activation de l'environnement
+
+L'utilisateur active l'environnement Python dans lequel les dépendances de
+`requirements.txt` sont installées.
+
+Cette étape garantit que Streamlit, pandas, scikit-learn, XGBoost et Joblib
+proviennent du même environnement.
+
+#### Étape 2 — Exécution du lanceur
+
+La commande recommandée est :
+
+```bash
+python run_platform.py
+```
+
+`run_platform.py` récupère :
+
+```python
+sys.executable
+```
+
+Cette valeur est le chemin de l'interpréteur Python actuellement utilisé.
+Le lanceur exécute ensuite l'équivalent de :
+
+```bash
+python -m streamlit run /chemin/absolu/vers/streamlit_app.py
+```
+
+L'utilisation du chemin absolu évite de dépendre du nom du dossier parent ou
+du répertoire personnel de l'utilisateur.
+
+#### Étape 3 — Démarrage du serveur Streamlit
+
+Streamlit démarre un serveur local, normalement sur le port 8501.
+
+Il fournit :
+
+- une adresse locale, généralement `http://localhost:8501` ;
+- éventuellement une adresse réseau local ;
+- une connexion gérée par Streamlit entre le navigateur et Python.
+
+La plateforme ne démarre aucun serveur Flask et ne crée aucune API REST.
+
+#### Étape 4 — Lecture de la configuration
+
+Quand l'application est lancée depuis `platform`, Streamlit lit :
+
+```text
+.streamlit/config.toml
+```
+
+Ce fichier définit notamment :
+
+- le thème clair ;
+- la couleur principale ;
+- la couleur de fond ;
+- la couleur des panneaux ;
+- la couleur du texte ;
+- le mode serveur sans interface système supplémentaire.
+
+### Phase B — Chargement du script Python
+
+#### Étape 5 — Importation des bibliothèques
+
+Python importe :
+
+- `Path` pour les chemins ;
+- `joblib` pour les artefacts ;
+- `numpy` pour les calculs ;
+- `pandas` pour les DataFrames ;
+- `streamlit` pour l'interface.
+
+À ce stade, aucun modèle n'est encore exécuté.
+
+#### Étape 6 — Construction du chemin des modèles
+
+La constante `MODELS` est construite à partir de l'emplacement réel de
+`streamlit_app.py` :
+
+```python
+MODELS = Path(__file__).resolve().parent / "models"
+```
+
+Si le projet est copié sur une autre machine, ce chemin devient
+automatiquement le dossier `models` de cette nouvelle copie.
+
+Il n'existe donc aucun chemin absolu dépendant de la machine d'Ahmed.
+
+#### Étape 7 — Déclaration des modalités
+
+Python construit les listes utilisées par les widgets :
+
+- niveaux d'études ;
+- secteurs professionnels ;
+- métiers ;
+- liens familiaux ;
+- situations familiales ;
+- pays ;
+- sexes ;
+- origines.
+
+Ces valeurs reprennent les modalités du jeu Adult que les modèles ont vues
+pendant leur entraînement.
+
+#### Étape 8 — Déclaration des profils de démonstration
+
+Deux dictionnaires sont créés en mémoire :
+
+- `Parcours courant` ;
+- `Capital extrême`.
+
+Ils ne déclenchent aucune prédiction tant que l'interface n'appelle pas
+`apply_profile()`.
+
+### Phase C — Construction initiale de la page
+
+#### Étape 9 — Appel de `main()`
+
+À la fin du fichier :
+
+```python
+if __name__ == "__main__":
+    main()
+```
+
+Streamlit exécute alors `main()`.
+
+#### Étape 10 — Configuration de la page
+
+`st.set_page_config()` définit :
+
+- le titre de l'onglet ;
+- l'icône ;
+- la disposition large.
+
+#### Étape 11 — Injection du style
+
+`st.markdown(..., unsafe_allow_html=True)` ajoute :
+
+- le bandeau principal ;
+- les couleurs ;
+- les espacements ;
+- la taille du résultat ;
+- la bordure des cartes.
+
+Ce CSS affecte uniquement la présentation. Il ne change aucune prédiction.
+
+#### Étape 12 — Initialisation de la session
+
+Streamlit maintient un `session_state` propre à chaque session navigateur.
+
+Si la clé `age` n'existe pas encore, `apply_profile()` copie le profil
+`Parcours courant` dans cet état.
+
+Cette opération fournit des valeurs valides à tous les widgets lors du
+premier affichage.
+
+### Phase D — Chargement des cinq artefacts
+
+#### Étape 13 — Appel de `load_models()`
+
+`main()` appelle :
+
+```python
+models = load_models()
+```
+
+La fonction associe cinq clés internes à cinq fichiers :
+
+```text
+income      → ahmed_bejaoui.joblib
+occupation  → ahmed_guesmi.joblib
+rhythm      → nour_trabelsi.joblib
+education   → arij_yousfi.joblib
+cluster     → seifeddine_alaimi.joblib
+```
+
+#### Étape 14 — Vérification de chaque fichier
+
+Pour chaque nom, la plateforme construit son chemin puis vérifie :
+
+```python
+path.exists()
+```
+
+- fichier présent → `joblib.load(path)` ;
+- fichier absent → valeur `None`.
+
+L'absence d'un modèle n'empêche donc pas automatiquement le chargement de la
+page.
+
+#### Étape 15 — Désérialisation Joblib
+
+`joblib.load()` reconstruit en mémoire :
+
+- les estimateurs XGBoost ;
+- les pipelines scikit-learn ;
+- les préprocesseurs ;
+- les listes de variables ;
+- les noms de classes ;
+- les seuils ;
+- les dictionnaires nécessaires à l'inférence.
+
+Un fichier `.joblib` doit uniquement être chargé s'il provient d'une source
+de confiance, car il peut contenir des objets Python exécutables.
+
+#### Étape 16 — Mise en cache
+
+`load_models()` utilise :
+
+```python
+@st.cache_resource
+```
+
+Au premier passage, les modèles sont lus depuis le disque.
+
+Lors des interactions suivantes, Streamlit réutilise les objets déjà en
+mémoire. Les modèles ne sont donc pas rechargés à chaque mouvement de slider.
+
+### Phase E — Construction du formulaire
+
+#### Étape 17 — Création des deux colonnes
+
+La page est séparée en :
+
+- colonne gauche : formulaire ;
+- colonne droite : résultats.
+
+#### Étape 18 — Boutons de démonstration
+
+Le clic sur un bouton appelle `apply_profile()` avec le dictionnaire choisi.
+
+La fonction copie chaque paire clé/valeur dans `st.session_state`.
+
+`st.rerun()` relance immédiatement le script afin que tous les widgets
+affichent les nouvelles valeurs.
+
+#### Étape 19 — Création des widgets
+
+Streamlit crée :
+
+- deux sliders ;
+- plusieurs listes déroulantes ;
+- deux entrées numériques ;
+- un panneau repliable pour le sexe et l'origine.
+
+Chaque widget possède une clé dans `session_state`.
+
+#### Étape 20 — Récupération des valeurs
+
+Les widgets renvoient directement leurs valeurs Python :
+
+- `age` et `hours` sont des entiers ;
+- `gain` et `loss` sont numériques ;
+- les sélections catégorielles sont des chaînes.
+
+#### Étape 21 — Conversion du diplôme
+
+Le libellé choisi, par exemple :
+
+```text
+Bachelors
+```
+
+est converti en code Adult :
+
+```text
+13
+```
+
+grâce à :
+
+```python
+dict(EDUCATION)[education_name]
+```
+
+### Phase F — Création du profil commun
+
+#### Étape 22 — Construction du DataFrame
+
+Les valeurs sont réunies dans un DataFrame pandas d'une ligne appelé `raw`.
+
+Ses colonnes sont :
+
+```text
+age
+education-num
+hours-per-week
+workclass
+occupation
+relationship
+marital-status
+capital-gain
+capital-loss
+native-country
+```
+
+Le sexe et l'origine ne sont pas ajoutés à ce DataFrame commun. Ils sont
+transmis séparément au seul module d'Arij.
+
+#### Étape 23 — Protection contre les mutations
+
+Chaque fonction de modèle commence par copier le profil avec :
+
+```python
+raw.copy()
+```
+
+Les variables créées pour un module ne modifient donc pas le DataFrame
+utilisé par les autres modules.
+
+## 27. Exécution détaillée des cinq modèles
+
+### Module 1 — Revenu
+
+#### Étape 24 — Création de `workload`
+
+Les heures sont transformées en :
+
+```text
+moins de 35  → part-time
+35 à 40      → full-time
+plus de 40   → overtime
+```
+
+#### Étape 25 — Création de `workclass-occupation`
+
+La plateforme concatène le secteur et le métier :
+
+```text
+Private + Craft-repair → Private__Craft-repair
+```
+
+#### Étape 26 — Création de `occupation-group`
+
+Le métier est converti vers son groupe au moyen du dictionnaire sauvegardé
+avec le modèle.
+
+Une modalité non reconnue reçoit `unknown`.
+
+#### Étape 27 — Sélection et ordre des variables
+
+La plateforme utilise exactement :
+
+```python
+featured[model["features"]]
+```
+
+Cette sélection est importante : un pipeline scikit-learn attend les mêmes
+noms et le même ordre logique qu'à l'entraînement.
+
+#### Étape 28 — Calcul de la probabilité
+
+Le pipeline complet reçoit les variables et exécute son prétraitement puis
+XGBoost :
+
+```python
+model["pipeline"].predict_proba(...)
+```
+
+`[0, 1]` sélectionne :
+
+- la première personne, car le DataFrame contient une ligne ;
+- la probabilité de la classe positive `>50K`.
+
+#### Étape 29 — Application du seuil
+
+La probabilité est comparée au seuil sauvegardé :
+
+```text
+0,375
+```
+
+Le résultat devient :
+
+- `<=50K` si la probabilité est inférieure ;
+- `>50K` si elle est supérieure ou égale.
+
+#### Étape 30 — Création du résultat revenu
+
+La fonction retourne un dictionnaire contenant :
+
+- `title` : texte destiné à la carte ;
+- `label` : valeur technique `<=50K` ou `>50K` ;
+- `score` : probabilité numérique ;
+- `bars` : valeurs à afficher ;
+- `note` : explication du seuil.
+
+### Propagation du revenu
+
+#### Étape 31 — Extraction de `income_label`
+
+`main()` récupère :
+
+```python
+income_label = income["label"]
+```
+
+Cette chaîne devient une entrée des modules suivants.
+
+Si le fichier du revenu est absent, la valeur de secours actuelle est :
+
+```text
+<=50K
+```
+
+La carte d'Ahmed indique alors que son modèle est absent, tandis que les
+autres modules peuvent encore être exécutés avec cette valeur de secours.
+
+### Module 2 — Famille de métiers
+
+#### Étape 32 — Ajout du revenu
+
+Le revenu estimé est ajouté à une copie du profil.
+
+#### Étape 33 — Construction de la matrice encodée
+
+La fonction crée :
+
+- `education-num` ;
+- `age` ;
+- `hours-per-week` ;
+- `income` codé en 0/1 ;
+- `workclass` codé par le dictionnaire du modèle ;
+- `education-level` ;
+- `age-group` ;
+- `workload`.
+
+Une valeur `workclass` inconnue reçoit le code `-1`.
+
+Le métier sélectionné dans le formulaire n'est pas copié dans cette matrice :
+il représente la cible que ce module essaie de prédire.
+
+#### Étape 34 — Prédiction de la famille
+
+Le premier XGBoost calcule quatre probabilités avec :
+
+```python
+family_model.predict_proba(encoded)
+```
+
+`np.argmax()` identifie la classe la plus probable.
+
+Les résultats sont ensuite triés du plus probable au moins probable.
+
+#### Étape 35 — Décision d'abstention
+
+La confiance maximale est comparée au seuil modéré :
+
+```text
+0,53
+```
+
+Sous ce seuil, le module retourne :
+
+```text
+Profil trop incertain
+```
+
+Il affiche quand même les quatre probabilités.
+
+#### Étape 36 — Prédiction du métier indicatif
+
+Si la confiance est suffisante, le second XGBoost calcule les probabilités
+des 14 métiers.
+
+La plateforme :
+
+1. conserve uniquement les métiers appartenant à la famille gagnante ;
+2. sélectionne le métier ayant la probabilité maximale parmi eux.
+
+#### Étape 37 — Niveau de fiabilité
+
+- confiance de 0,53 à moins de 0,68 → modérée ;
+- confiance d'au moins 0,68 → élevée.
+
+### Module 3 — Rythme de travail
+
+#### Étape 38 — Ajout du revenu
+
+Le revenu estimé est ajouté au profil.
+
+#### Étape 39 — Création des groupes
+
+La fonction crée :
+
+- `age-group` avec quatre tranches ;
+- `education-level` avec cinq tranches ;
+- `employment-sector`.
+
+Le secteur devient :
+
+- `private` ;
+- `public` ;
+- `self-employed` ;
+- `other` ;
+- `unknown`.
+
+#### Étape 40 — Sélection des variables
+
+La plateforme sélectionne les colonnes sauvegardées dans :
+
+```python
+model["features"]
+```
+
+`hours-per-week` n'appartient pas à cette liste. Même si la valeur existe
+dans `raw`, elle n'entre donc pas dans le modèle de Nour.
+
+#### Étape 41 — Prétraitement
+
+Le préprocesseur sauvegardé :
+
+- impute les valeurs manquantes ;
+- standardise les nombres ;
+- encode les catégories ;
+- produit la matrice attendue par XGBoost.
+
+#### Étape 42 — Restauration des noms de colonnes
+
+Si la matrice est sparse, elle est transformée en tableau dense.
+
+Un DataFrame est reconstruit avec :
+
+```python
+model["feature_names"]
+```
+
+Cette étape respecte les noms nettoyés utilisés pendant l'entraînement de
+XGBoost.
+
+#### Étape 43 — Probabilités de rythme
+
+XGBoost retourne trois probabilités. `np.argsort(-probabilities)` les classe
+par ordre décroissant.
+
+La première devient le titre de la carte.
+
+### Module 4 — Niveau d'études
+
+#### Étape 44 — Construction des variables numériques
+
+La fonction récupère :
+
+- âge ;
+- heures ;
+- gain et perte en capital ;
+- revenu estimé.
+
+Elle ajoute :
+
+- sexe codé ;
+- `has-capital` ;
+- tranche d'âge ;
+- tranche de charge de travail.
+
+`education-num` n'est pas repris, car il définit la cible de ce module.
+
+#### Étape 45 — Construction des catégories
+
+Les variables catégorielles sont :
+
+- métier ;
+- secteur ;
+- situation familiale ;
+- lien familial ;
+- origine ;
+- pays ;
+- secteur d'emploi regroupé.
+
+#### Étape 46 — One-Hot Encoding manuel
+
+Pour chaque catégorie, la plateforme crée un nom de colonne de la forme :
+
+```text
+occupation_Craft-repair
+workclass_Private
+race_White
+```
+
+La valeur de la modalité active est 1.
+
+#### Étape 47 — Alignement exact
+
+Le DataFrame est réaligné sur les 39 colonnes sauvegardées :
+
+```python
+reindex(columns=model["columns"], fill_value=0)
+```
+
+Cette opération :
+
+- place les colonnes dans l'ordre attendu ;
+- ajoute les colonnes manquantes avec 0 ;
+- ignore les colonnes qui n'ont pas été sélectionnées à l'entraînement.
+
+#### Étape 48 — Prédiction
+
+XGBoost calcule la probabilité de `Licence ou plus`.
+
+Le seuil 0,50 produit :
+
+- `Sous la licence` ;
+- `Licence ou plus`.
+
+### Module 5 — Segmentation
+
+#### Étape 49 — Ajout du revenu
+
+Le revenu estimé est ajouté au profil comme variable catégorielle.
+
+#### Étape 50 — Capital net
+
+La plateforme calcule :
+
+```text
+capital-gain - capital-loss
+```
+
+#### Étape 51 — Transformation logarithmique signée
+
+La formule utilisée est :
+
+```text
+sign(capital net) × log(1 + |capital net|)
+```
+
+Elle réduit l'influence des valeurs de capital très élevées sans supprimer
+le signe des pertes.
+
+#### Étape 52 — Variables de rythme et d'âge
+
+Les tranches sont créées avec les bornes et les libellés sauvegardés dans
+l'artefact du modèle.
+
+#### Étape 53 — Ratio travail/âge
+
+La plateforme calcule :
+
+```text
+hours-per-week / age
+```
+
+#### Étape 54 — Prétraitement
+
+Le pipeline de Seifeddine :
+
+- standardise les variables numériques ;
+- applique un encodage ordinal aux tranches ;
+- applique un One-Hot Encoding aux catégories.
+
+#### Étape 55 — Affectation K-Means
+
+`kmeans.predict()` choisit le centroïde le plus proche et retourne un label
+technique.
+
+#### Étape 56 — Renumérotation et persona
+
+Le dictionnaire `mapping` convertit le label technique vers le numéro stable
+affiché.
+
+`names` convertit ce numéro vers un persona lisible.
+
+K-Means ne retourne pas une probabilité ; la carte affiche donc uniquement le
+groupe et son nom.
+
+## 28. Standardisation des résultats
+
+Les cinq fonctions retournent des dictionnaires conçus pour être compris par
+une seule fonction d'affichage.
+
+### Structure commune
+
+```python
+{
+    "title": "résultat principal",
+    "bars": [
+        ("nom de la classe", probabilité),
+    ],
+    "note": "explication"
+}
+```
+
+### Champs supplémentaires du revenu
+
+Le module revenu ajoute :
+
+```python
+{
+    "label": "<=50K ou >50K",
+    "score": 0.0 à 1.0
+}
+```
+
+`label` sert à la communication entre les modules.
+
+`title` sert uniquement à l'affichage utilisateur.
+
+## 29. Assemblage et affichage des cartes
+
+#### Étape 57 — Création de la liste `cards`
+
+Python évalue chaque appel dans l'ordre de la liste :
+
+1. résultat revenu déjà calculé ;
+2. famille de métiers ;
+3. rythme ;
+4. niveau d'études ;
+5. groupe professionnel.
+
+Chaque entrée contient :
+
+- un numéro ;
+- un membre ;
+- un titre ;
+- un résultat.
+
+#### Étape 58 — Gestion d'un modèle absent
+
+Si un artefact vaut `None`, le résultat de sa carte vaut aussi `None`.
+
+`render_card()` affiche alors :
+
+```text
+Modèle absent du dossier platform/models.
+```
+
+#### Étape 59 — Affichage du titre
+
+`render_card()` affiche le numéro, le nom du module et le membre.
+
+#### Étape 60 — Affichage du résultat principal
+
+Le champ `title` est affiché avec la classe CSS `.result`.
+
+#### Étape 61 — Affichage des probabilités
+
+Chaque paire de `bars` devient une barre Streamlit.
+
+La valeur est limitée entre 0 et 1 avant l'affichage :
+
+```python
+min(max(value, 0.0), 1.0)
+```
+
+#### Étape 62 — Affichage de la note
+
+Le champ `note` devient une légende sous la carte.
+
+## 30. Cycle de réexécution Streamlit
+
+Streamlit adopte un modèle d'exécution différent d'une page HTML classique.
+
+Quand l'utilisateur change un champ :
+
+1. la nouvelle valeur est enregistrée dans la session ;
+2. `streamlit_app.py` est réexécuté du début à la fin ;
+3. les constantes sont recréées ;
+4. `main()` reconstruit la page ;
+5. `load_models()` récupère les modèles depuis le cache ;
+6. le DataFrame `raw` est reconstruit ;
+7. les cinq inférences sont recalculées ;
+8. les cartes sont redessinées.
+
+Les modèles ne sont pas réentraînés et ne sont normalement pas relus depuis
+le disque.
+
+### État par navigateur
+
+Les valeurs des widgets appartiennent à la session du navigateur concerné.
+
+### Ressources partagées
+
+Les objets retournés par `st.cache_resource` sont conservés au niveau du
+processus serveur et peuvent être réutilisés entre les réexécutions.
+
+La plateforme les utilise uniquement pour l'inférence.
+
+## 31. Graphe des appels
+
+```text
+run_platform.py
+└── python -m streamlit run streamlit_app.py
+    └── main()
+        ├── st.set_page_config()
+        ├── CSS + bandeau
+        ├── apply_profile() si première session
+        ├── load_models()
+        │   └── joblib.load() × 5 au premier chargement
+        ├── widgets Streamlit
+        ├── pandas.DataFrame([profil])
+        ├── income_card()
+        │   └── pipeline.predict_proba()
+        ├── occupation_card()
+        │   ├── family_model.predict_proba()
+        │   └── occupation_model.predict_proba()
+        ├── rhythm_card()
+        │   ├── preprocessor.transform()
+        │   └── model.predict_proba()
+        ├── education_card()
+        │   └── model.predict_proba()
+        ├── cluster_card()
+        │   ├── preprocessor.transform()
+        │   └── kmeans.predict()
+        └── render_card() × 5
+```
+
+## 32. Exemple complet tracé
+
+Considérons le profil de démonstration courant :
+
+```text
+age                = 35
+education          = HS-grad
+education-num      = 9
+hours-per-week     = 40
+workclass          = Private
+occupation         = Craft-repair
+relationship       = Husband
+marital-status     = Married-civ-spouse
+capital-gain       = 0
+capital-loss       = 0
+native-country     = United-States
+sex                = Male
+race               = White
+```
+
+### Passage dans Ahmed Bejaoui
+
+Variables créées :
+
+```text
+workload             = full-time
+workclass-occupation = Private__Craft-repair
+occupation-group     = skilled-manual
+```
+
+Lors du test d'intégration, le modèle a produit environ 18 % pour `>50K`.
+
+Comme :
+
+```text
+0,18 < 0,375
+```
+
+la classe transmise est :
+
+```text
+<=50K
+```
+
+### Passage dans Ahmed Guesmi
+
+`income` devient 0.
+
+Le groupe `Manuel & technique` atteint environ 51 %, mais :
+
+```text
+0,51 < 0,53
+```
+
+La carte affiche donc `Profil trop incertain`.
+
+### Passage dans Nour
+
+Le profil reçoit :
+
+```text
+income             = <=50K
+age-group          = adult
+education-level    = high-school
+employment-sector = private
+```
+
+Le modèle a sélectionné `Standard (35-40 h)`.
+
+### Passage dans Arij
+
+Le niveau `HS-grad` n'est pas utilisé comme entrée.
+
+Le modèle utilise le reste du profil, dont le revenu estimé, le sexe et
+l'origine, et sélectionne `Sous la licence`.
+
+### Passage dans Seifeddine
+
+Les variables créées comprennent :
+
+```text
+net_capital_log = 0
+work_life_ratio = 40 / 35
+```
+
+Le profil est affecté au persona `Jeunes actifs en début de carrière`.
+
+## 33. Gestion des erreurs
+
+### Fichier manquant
+
+Cette situation est gérée explicitement : la carte affiche un message.
+
+### Erreur de désérialisation
+
+Si un fichier existe mais ne peut pas être chargé, par exemple à cause d'une
+version incompatible, `joblib.load()` lève une exception. Streamlit affiche
+alors son écran d'erreur.
+
+### Erreur de colonnes
+
+Si un artefact est remplacé par un modèle ayant d'autres colonnes, la
+transformation ou la prédiction peut échouer.
+
+Il faut alors mettre à jour simultanément :
+
+- le modèle ;
+- les métadonnées de variables ;
+- la fonction d'adaptation.
+
+### Modalité inconnue
+
+Le comportement dépend du module :
+
+- Ahmed utilise le pipeline sauvegardé ;
+- Nour utilise `handle_unknown="ignore"` dans son encodeur ;
+- Guesmi remplace un secteur inconnu par `-1` ;
+- Arij réaligne les colonnes et remplit les absences par 0 ;
+- Seifeddine utilise le préprocesseur sauvegardé.
+
+L'interface limite normalement les entrées aux modalités connues.
+
+### Valeur hors limites
+
+Les sliders et entrées numériques empêchent les valeurs en dehors des
+intervalles définis dans l'interface.
+
+## 34. Performance et mémoire
+
+### Entraînement
+
+Aucun entraînement n'est exécuté par `streamlit_app.py`.
+
+### Chargement
+
+Les cinq artefacts représentent environ 11 Mo sur le disque. Ils sont chargés
+au premier accès puis conservés par le cache.
+
+### Inférence
+
+Chaque interaction exécute plusieurs prédictions sur une seule ligne. Cette
+charge est faible par rapport à l'entraînement.
+
+### Réseau
+
+Les modèles n'appellent aucun service externe. Les prédictions sont locales.
+
+La connexion navigateur/serveur reste gérée par Streamlit.
+
+## 35. Pseudocode complet
+
+```text
+DÉMARRER Streamlit
+
+CHARGER ou RÉUTILISER les cinq modèles
+
+SI nouvelle session :
+    CHARGER le profil courant dans session_state
+
+AFFICHER le formulaire
+LIRE les valeurs des widgets
+CONVERTIR le diplôme vers education-num
+CRÉER raw = DataFrame d'une ligne
+
+SI modèle revenu disponible :
+    CRÉER ses variables
+    CALCULER P(>50K)
+    APPLIQUER seuil 0,375
+    PRODUIRE income_label
+SINON :
+    UTILISER income_label = <=50K comme valeur de secours
+
+SI modèle métier disponible :
+    ENCODER le profil avec income_label
+    CALCULER les probabilités des familles
+    SI confiance < 0,53 :
+        S'ABSTENIR
+    SINON :
+        PRÉDIRE un métier indicatif dans la famille
+
+SI modèle rythme disponible :
+    CRÉER les groupes d'âge, d'études et de secteur
+    APPLIQUER le préprocesseur
+    CALCULER les trois probabilités
+
+SI modèle éducation disponible :
+    CRÉER les variables sans utiliser education-num
+    ALIGNER sur les 39 colonnes
+    CALCULER P(licence ou plus)
+    APPLIQUER seuil 0,50
+
+SI modèle clustering disponible :
+    CRÉER capital net logarithmique et ratio travail/âge
+    APPLIQUER le préprocesseur
+    PRÉDIRE le cluster
+    CONVERTIR le cluster en persona
+
+AFFICHER les cinq cartes
+ATTENDRE une interaction
+
+À CHAQUE INTERACTION :
+    RÉEXÉCUTER le flux en réutilisant les modèles en cache
+```
+
+## 36. Liste de vérification technique
+
+Avant une démonstration sur une nouvelle machine :
+
+1. vérifier `python --version` ;
+2. activer l'environnement virtuel ;
+3. installer `requirements.txt` ;
+4. vérifier les cinq fichiers dans `models/` ;
+5. exécuter `python run_platform.py` ;
+6. ouvrir `http://localhost:8501` ;
+7. tester `Parcours courant` ;
+8. tester `Capital extrême` ;
+9. vérifier que les cinq cartes répondent ;
+10. vérifier que la carte revenu influence les autres modules ;
+11. laisser le terminal ouvert pendant la démonstration ;
+12. arrêter avec `Ctrl+C` après la démonstration.
+
+## 37. Ce que la plateforme ne fait pas
+
+La plateforme :
+
+- ne réexécute pas les notebooks ;
+- ne réentraîne pas les modèles ;
+- ne modifie pas `adult.data` ;
+- n'écrit pas les profils dans une base de données ;
+- ne crée pas d'endpoint REST personnalisé ;
+- n'envoie pas les profils à une API de machine learning ;
+- ne remplace pas une validation humaine ;
+- ne transforme pas une probabilité en garantie.
